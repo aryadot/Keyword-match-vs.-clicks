@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyword match vs. clicks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+
+:root {
+  --font-anthropic-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-anthropic-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --cds-font-size-caption: 0.8125rem; --cds-font-size-body: 0.9375rem;
+  --cds-font-size-heading: 1.0625rem; --cds-font-size-title: 1.75rem;
+  --cds-font-weight-medium: 600;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 16px; --cds-gap-lg: 24px; --cds-gap-xl: 36px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 20px; --cds-pad-xl: 32px;
+  --cds-radius: 12px; --cds-dur-slow: 300ms;
+}
+html, body { margin: 0; background: #ffffff; }
+.dash-skeleton { min-height: 1em; }
+.kv-foot { max-width: 1120px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 40px) 40px; font: 0.8125rem/1.5 var(--font-anthropic-sans); color: #5c5f66; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+.kv-page { background: #ffffff; padding: clamp(16px, 3vw, 40px);
+  --color-bg: #ffffff; --color-panel: #ffffff; --color-fg: #1b1b1f; --color-fg-muted: #5c5f66;
+  --color-border-line: #e8e8ee; --color-ok: #06a77d; --color-warn: #e07a00; --color-bad: #e5383b;
+  --cds-chart-grid: #eeeef3; --cds-chart-axis: #c9c9d3; --cds-chart-reference: #4a4a55; --cds-chart-muted: #c9c9d3;
+  --cds-surface-popover: #ffffff; --cds-border: #e2e2ea; --cds-text-secondary: #6b6e76;
+  --cds-shadow-popover: 0 6px 20px rgba(20, 20, 40, .12);
+  color: var(--color-fg); }
+.kv-page .kv-tick { fill: #5c5f66; }
+.kv { font-family: var(--font-anthropic-sans); color: var(--color-fg); max-width: 1120px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--cds-gap-xl); }
+.kv-hero { border-radius: var(--cds-radius); padding: var(--cds-pad-xl); border: 1px solid var(--color-border-line);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--kv-user) 30%, #ffffff) 0%, color-mix(in srgb, var(--kv-third) 22%, #ffffff) 50%, color-mix(in srgb, var(--kv-expert) 30%, #ffffff) 100%);
+  display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+.kv-eyebrow { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); letter-spacing: .04em; text-transform: uppercase; }
+.kv-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; line-height: 1.2; max-width: 48rem; }
+.kv-takeaway { font-size: var(--cds-font-size-body); margin: 0; max-width: 60rem; line-height: 1.55; }
+.kv-takeaway b { font-variant-numeric: tabular-nums; }
+.kv-who { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); margin-top: var(--cds-gap-xs); }
+.kv-pill { display: inline-flex; align-items: center; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-radius: 999px; background: var(--color-panel); border: 1px solid var(--color-border-line); }
+.kv-swatch { width: .6rem; height: .6rem; border-radius: 50%; }
+.kv-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--cds-gap-md); }
+.kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--cds-gap-md); }
+.kv-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+.kv-card.kv-user { border-top: 4px solid var(--kv-user); background: color-mix(in srgb, var(--kv-user) 10%, #ffffff); }
+.kv-card.kv-expert { border-top: 4px solid var(--kv-expert); background: color-mix(in srgb, var(--kv-expert) 10%, #ffffff); }
+.kv-card.kv-neutral { border-top: 4px solid var(--kv-third); background: color-mix(in srgb, var(--kv-third) 10%, #ffffff); }
+.kv-card.kv-warm { border-top: 4px solid var(--kv-fourth); background: color-mix(in srgb, var(--kv-fourth) 10%, #ffffff); }
+.kv-kpi-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.kv-kpi-value { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; }
+.kv-user .kv-kpi-value { color: var(--kv-user); }
+.kv-expert .kv-kpi-value { color: var(--kv-expert); }
+.kv-kpi-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.kv-section { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+.kv-chapter { align-self: flex-start; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); padding: 2px var(--cds-pad-sm); border-radius: 999px; color: var(--color-fg); background: color-mix(in srgb, var(--kv-chip, var(--kv-third)) 22%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--kv-chip, var(--kv-third)) 45%, var(--color-panel)); }
+.kv-section h2 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; line-height: 1.25; }
+.kv-lede { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin: 0 0 var(--cds-gap-xs); max-width: 60rem; line-height: 1.55; }
+.kv-card h3 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.kv-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; line-height: 1.45; }
+.kv-chart { position: relative; min-height: 230px; }
+.kv-chart.kv-short { min-height: 110px; }
+.kv-svg { display: block; overflow: visible; }
+.kv-tick { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.kv-val { fill: var(--color-fg); font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+.kv-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); opacity: 0; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.kv-tip-head { color: var(--cds-text-secondary); }
+.kv-failed { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-xs); min-height: inherit; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.kv-dot { width: 0.375rem; height: 0.375rem; border-radius: 50%; background: var(--color-bad); }
+.kv [data-dash-source-state=empty] { color: transparent; }
+.kv [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.kv-example { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+.kv-query { font-size: var(--cds-font-size-body); padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: 999px; border: 1px solid var(--color-border-line); background: var(--color-bg); }
+.kv-result { display: flex; gap: var(--cds-gap-sm); align-items: flex-start; padding: var(--cds-pad-sm); border-radius: var(--cds-radius); border-left: 4px solid var(--kv-c); background: color-mix(in srgb, var(--kv-c) 9%, var(--color-panel)); }
+.kv-result-title { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
+.kv-result-tag { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.kv-quote { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-heading); line-height: 1.4; margin: 0; }
+.kv-table-wrap { overflow-x: auto; }
+.kv-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+.kv-table th { text-align: left; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); border-bottom: 1px solid var(--color-border-line); padding: var(--cds-pad-xs) var(--cds-pad-sm); white-space: nowrap; }
+.kv-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.kv-table .kv-num { text-align: right; }
+.kv-lift { display: flex; align-items: center; gap: var(--cds-gap-sm); min-width: 10rem; }
+.kv-lift-val { min-width: 2.75rem; }
+.kv-track { position: relative; flex: 1; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--kv-user) 10%, var(--color-panel)); }
+.kv-bar { height: 100%; border-radius: 5px; }
+.kv-ref { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--cds-chart-reference); }
+.kv-list { margin: 0; padding-left: 1.1rem; font-size: var(--cds-font-size-body); display: flex; flex-direction: column; gap: var(--cds-gap-sm); line-height: 1.55; }
+.kv-list b { font-weight: var(--cds-font-weight-medium); }
+.kv-rep-pair { display: flex; gap: var(--cds-gap-xl); flex-wrap: wrap; }
+.kv-rep-a { color: var(--kv-third); }
+.kv-rep-b { color: var(--kv-fourth); }
+.kv-wide { grid-column: span 2; }
+@media (max-width: 760px) { .kv-wide { grid-column: auto; } }
+
+.kv-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: var(--cds-gap-xs); flex-wrap: wrap; padding: var(--cds-pad-sm); border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: color-mix(in srgb, var(--color-panel) 92%, transparent); backdrop-filter: blur(6px); }
+.kv-nav button { font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer; display: inline-flex; align-items: center; gap: var(--cds-gap-xs); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--color-fg-muted); }
+.kv-nav button.kv-on { color: var(--color-fg); border-color: color-mix(in srgb, var(--kv-c) 55%, var(--color-panel)); background: color-mix(in srgb, var(--kv-c) 18%, var(--color-panel)); }
+.kv-num-badge { color: #ffffff !important; display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); color: var(--color-bg); background: var(--kv-c); }
+.kv-step-head { display: flex; align-items: center; gap: var(--cds-gap-sm); }
+.kv-step-head .kv-num-badge { width: 2rem; height: 2rem; font-size: var(--cds-font-size-body); }
+.kv-step-kicker { font-size: var(--cds-font-size-caption); letter-spacing: .04em; text-transform: uppercase; color: var(--color-fg-muted); }
+.kv-callout { border-radius: var(--cds-radius); padding: var(--cds-pad-lg); border-left: 5px solid var(--kv-c); background: color-mix(in srgb, var(--kv-c) 11%, var(--color-panel)); font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-heading); line-height: 1.45; }
+.kv-callout b { font-variant-numeric: tabular-nums; }
+.kv-hypo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cds-gap-sm); }
+.kv-hypo div { border-radius: var(--cds-radius); padding: var(--cds-pad-md); border: 1px dashed color-mix(in srgb, var(--kv-c) 60%, var(--color-panel)); background: color-mix(in srgb, var(--kv-c) 6%, var(--color-panel)); font-size: var(--cds-font-size-body); line-height: 1.45; }
+.kv-checks { display: flex; flex-direction: column; }
+.kv-check { display: grid; grid-template-columns: 2rem 1fr auto; gap: var(--cds-gap-sm); align-items: start; padding: var(--cds-pad-sm) 0; border-bottom: 1px solid var(--color-border-line); }
+.kv-check:last-child { border-bottom: none; }
+.kv-check-q { font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-body); }
+.kv-check-a { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.kv-verdict { font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); padding: 2px var(--cds-pad-sm); border-radius: 999px; white-space: nowrap; }
+.kv-holds { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 14%, var(--color-panel)); }
+.kv-partly { color: var(--color-warn); background: color-mix(in srgb, var(--color-warn) 14%, var(--color-panel)); }
+.kv-check-n { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-heading); color: var(--kv-c); }
+.kv-test-title { display: flex; align-items: center; gap: var(--cds-gap-sm); flex-wrap: wrap; }
+.kv-details summary { cursor: pointer; font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); padding: var(--cds-pad-sm) 0; }
+.kv-details[open] summary { margin-bottom: var(--cds-gap-sm); }
+
+</style>
+</head>
+<body>
+
+
+<div class="kv-page">
+<div class="kv">
+  <header class="kv-hero" id="title">
+    <div class="kv-eyebrow">A search relevance story</div>
+    <h1 class="kv-title">When a title just repeats your search, experts love it. People skip it.</h1>
+    <p id="takeaway" class="kv-takeaway">Inside the very same search, results whose titles contain every word you typed get <b data-source="headline" data-field="rel_drop" class="dash-skeleton">—</b> fewer clicks than titles that only partly match, even though expert raters score them <b data-source="within_search" data-field="diff" data-where="test=experts" class="dash-skeleton">—</b> points more relevant. The finding survived four attempts to break it, including a second, independent sample.</p>
+    <div class="kv-who">
+      <span class="kv-pill"><span class="kv-swatch" style="background: var(--kv-user)"></span>🧑‍💻 What people clicked</span>
+      <span class="kv-pill"><span class="kv-swatch" style="background: var(--kv-expert)"></span>📋 What experts rated relevant</span>
+    </div>
+  </header>
+
+  <div class="kv-kpis" id="headline-figures">
+    <div class="kv-card kv-user">
+      <div class="kv-kpi-label">🧑‍💻 Fewer clicks when the title copies every query word</div>
+      <div class="kv-kpi-value" data-source="headline" data-field="rel_drop">—</div>
+      <div class="kv-kpi-note">Versus partial matches in the same search, after accounting for page position</div>
+    </div>
+    <div class="kv-card kv-expert">
+      <div class="kv-kpi-label">📋 Higher expert score for the same kind of title</div>
+      <div class="kv-kpi-value">+<span data-source="within_search" data-field="diff" data-where="test=experts" class="dash-skeleton">—</span></div>
+      <div class="kv-kpi-note">On a bad-to-excellent scale, same query</div>
+    </div>
+    <div class="kv-card kv-neutral">
+      <div class="kv-kpi-label">🔍 Real searches studied</div>
+      <div class="kv-kpi-value" data-source="overview" data-field="searches">—</div>
+      <div class="kv-kpi-note"><span data-source="overview" data-field="results" class="dash-skeleton">—</span> results people could have clicked</div>
+    </div>
+    <div class="kv-card kv-warm">
+      <div class="kv-kpi-label">⭐ Results scored by experts</div>
+      <div class="kv-kpi-value" data-source="overview" data-field="rated_results">—</div>
+      <div class="kv-kpi-note">A separate set of searches, rated by trained judges</div>
+    </div>
+  </div>
+
+  <nav class="kv-nav" id="chapters" aria-label="Story chapters">
+    <button data-go="belief" style="--kv-c: var(--kv-third)"><span class="kv-num-badge">1</span>The belief</button>
+    <button data-go="fair-test" style="--kv-c: var(--kv-third)"><span class="kv-num-badge">2</span>The fair test</button>
+    <button data-go="surprise" style="--kv-c: var(--kv-user)"><span class="kv-num-badge">3</span>The surprise</button>
+    <button data-go="break-it" style="--kv-c: var(--kv-fourth)"><span class="kv-num-badge">4</span>Trying to break it</button>
+    <button data-go="meaning" style="--kv-c: var(--kv-expert)"><span class="kv-num-badge">5</span>What it means</button>
+  </nav>
+
+  <section class="kv-section" id="belief" style="--kv-c: var(--kv-third)">
+    <div class="kv-step-head"><span class="kv-num-badge">1</span><span class="kv-step-kicker">The belief</span></div>
+    <h2>"Put the searcher's exact words in your headline"</h2>
+    <p class="kv-lede">It's standard ad advice, and most relevance scores work the same way: the more of the query a title contains, the more relevant it looks. If that's right, the titles that copy the search should win the most clicks.</p>
+    <div class="kv-grid">
+      <div class="kv-card kv-example">
+        <h3>Three results for one search</h3>
+        <p class="kv-note">Illustrative only: these titles are made up to show the idea.</p>
+        <div class="kv-query">🔍 how to fix a leaky faucet</div>
+        <div class="kv-result" style="--kv-c: var(--kv-expert)"><div><div class="kv-result-title">How to Fix a Leaky Faucet</div><div class="kv-result-tag">Full match: copies the search word for word</div></div></div>
+        <div class="kv-result" style="--kv-c: var(--kv-user)"><div><div class="kv-result-title">Dripping tap? A plumber's quick fix that actually works</div><div class="kv-result-tag">Partial match: some shared words, plus something new</div></div></div>
+        <div class="kv-result" style="--kv-c: var(--kv-third)"><div><div class="kv-result-title">Bathroom sink repair guide</div><div class="kv-result-tag">No shared words</div></div></div>
+      </div>
+      <div class="kv-card kv-neutral">
+        <h3>The question this project tests</h3>
+        <div class="kv-hypo">
+          <div><b>If the advice is right:</b> the more a title matches the search, the more people click, all the way to a full match.</div>
+          <div><b>If it's wrong:</b> clicks stop rising, or fall, once a title just repeats the search.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kv-section" id="fair-test" style="--kv-c: var(--kv-third)">
+    <div class="kv-step-head"><span class="kv-num-badge">2</span><span class="kv-step-kicker">The fair test</span></div>
+    <h2>The top spot gets clicked most, whatever it says</h2>
+    <p class="kv-lede">Before comparing titles, one trap: a result's spot on the page drives clicks on its own. So every comparison that follows asks a fairer question: did a result get more or fewer clicks than its spot alone would earn?</p>
+    <div class="kv-grid">
+      <div class="kv-card kv-neutral kv-wide">
+        <h3>Share of people clicking each spot on the page</h3>
+        <p class="kv-note">Each step down roughly halves clicks. A title at spot one would look great even if it were mediocre.</p>
+        <div class="kv-chart dash-skeleton" id="chart-position" data-source="position"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kv-section" id="surprise" style="--kv-c: var(--kv-user)">
+    <div class="kv-step-head"><span class="kv-num-badge">3</span><span class="kv-step-kicker">The surprise</span></div>
+    <h2>Experts reward the perfect match. People don't.</h2>
+    <div class="kv-callout">Expert scores keep climbing as a title shares more of the search. Clicks climb too, until the title matches every word, and then they fall below what the spot predicts.</div>
+    <div class="kv-grid">
+      <div class="kv-card kv-user">
+        <h3>🧑‍💻 Clicks compared with what the spot predicts</h3>
+        <p class="kv-note">Above the dashed line means more clicks than expected.</p>
+        <div class="kv-chart dash-skeleton" id="chart-overlap-lift" data-source="overlap"></div>
+      </div>
+      <div class="kv-card kv-expert">
+        <h3>📋 Average expert score</h3>
+        <p class="kv-note">Experts reward the full match most, by a wide margin.</p>
+        <div class="kv-chart dash-skeleton" id="chart-overlap-label" data-source="overlap"></div>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="kv-card kv-user">
+        <h3>🧑‍💻 It's sharpest when the title adds nothing new</h3>
+        <p class="kv-note">Full-match titles on longer searches, by how much they say beyond the query.</p>
+        <div class="kv-chart dash-skeleton" id="chart-copy-lift" data-source="nearcopy"></div>
+      </div>
+      <div class="kv-card kv-expert">
+        <h3>📋 ...exactly where experts like it most</h3>
+        <p class="kv-note">The same three title shapes, scored by experts.</p>
+        <div class="kv-chart dash-skeleton" id="chart-copy-label" data-source="nearcopy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kv-section" id="break-it" style="--kv-c: var(--kv-fourth)">
+    <div class="kv-step-head"><span class="kv-num-badge">4</span><span class="kv-step-kicker">Trying to break it</span></div>
+    <h2>Four ways this could have been wrong, and what happened</h2>
+    <p class="kv-lede">A surprising result is a reason to look harder, not to celebrate. Each check below was a real chance for the finding to fall apart.</p>
+    <div class="kv-card kv-warm">
+      <h3>Stress-test scorecard</h3>
+      <div class="kv-checks">
+        <div class="kv-check"><span class="kv-check-n">A</span><div><div class="kv-check-q">Maybe full and partial matches just come from different kinds of searches?</div><div class="kv-check-a">Compared them inside the same search. The gap stays, far from zero.</div></div><span class="kv-verdict kv-holds">Holds</span></div>
+        <div class="kv-check"><span class="kv-check-n">B</span><div><div class="kv-check-q">Maybe very short searches are skewing everything?</div><div class="kv-check-a">They are, partly: short searches rarely get clicks and almost always match fully. On longer searches, where most searches fall, the drop remains.</div></div><span class="kv-verdict kv-partly">Partly explains it</span></div>
+        <div class="kv-check"><span class="kv-check-n">C</span><div><div class="kv-check-q">Maybe relevance itself just doesn't drive clicks?</div><div class="kv-check-a">A smarter match score rises with both clicks and expert scores. Relevance matters; word-for-word copying is what backfires.</div></div><span class="kv-verdict kv-holds">Holds</span></div>
+        <div class="kv-check"><span class="kv-check-n">D</span><div><div class="kv-check-q">Maybe it's a fluke of one sample?</div><div class="kv-check-a">Reran every test on an independent batch of searches: <b data-source="replication" data-field="original" data-where="metric=within_diff" class="dash-skeleton">—</b> first, <b data-source="replication" data-field="replication" data-where="metric=within_diff" class="dash-skeleton">—</b> second.</div></div><span class="kv-verdict kv-holds">Holds</span></div>
+      </div>
+    </div>
+
+    <div class="kv-test-title"><span class="kv-check-n">A</span><h3>Same search, head to head</h3></div>
+    <div class="kv-grid">
+      <div class="kv-card kv-user">
+        <h3>🧑‍💻 Chance of a click: full match minus partial</h3>
+        <p class="kv-note">Percentage points, with the plausible range. Dashed line: no difference.</p>
+        <div class="kv-chart kv-short dash-skeleton" id="chart-within-clicks" data-source="within_search"></div>
+      </div>
+      <div class="kv-card kv-expert">
+        <h3>📋 Expert score: full match minus partial</h3>
+        <p class="kv-note">Rating points, with the plausible range. Opposite direction.</p>
+        <div class="kv-chart kv-short dash-skeleton" id="chart-within-experts" data-source="within_search"></div>
+      </div>
+    </div>
+
+    <div class="kv-test-title"><span class="kv-check-n">B</span><h3>Splitting by search length</h3></div>
+    <div class="kv-card kv-warm">
+      <details class="kv-details">
+        <summary>Show clicks by search length and match level</summary>
+        <p class="kv-note">Search length counted in Chinese tokens. Highlighted bars are full matches; the thin marker is what the spot alone predicts. Mid-length searches reverse the pattern, in both samples.</p>
+        <div class="kv-table-wrap">
+          <table class="kv-table" id="table-qlen" data-source="qlen" data-row-key="q_len,bucket">
+            <thead><tr>
+              <th data-field="q_len">Search length</th>
+              <th data-field="label">How much the title matches</th>
+              <th data-field="n" class="kv-num">Results</th>
+              <th data-field="lift">Clicks vs. expected</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="kv-test-title"><span class="kv-check-n">C</span><h3>A smarter match score</h3></div>
+    <div class="kv-grid">
+      <div class="kv-card kv-user">
+        <h3>🧑‍💻 Clicks by smarter match score (BM25)</h3>
+        <p class="kv-note">Five equal groups, weakest to strongest match.</p>
+        <div class="kv-chart dash-skeleton" id="chart-bm25-lift" data-source="bm25"></div>
+      </div>
+      <div class="kv-card kv-expert">
+        <h3>📋 Expert score by smarter match score</h3>
+        <p class="kv-note">Both rise together.</p>
+        <div class="kv-chart dash-skeleton" id="chart-bm25-label" data-source="bm25"></div>
+      </div>
+    </div>
+
+    <div class="kv-test-title"><span class="kv-check-n">D</span><h3>A second, independent sample</h3></div>
+    <div class="kv-grid">
+      <div class="kv-card kv-warm">
+        <h3>Same-search click gap, both samples</h3>
+        <p class="kv-note">Position-adjusted, in percentage points.</p>
+        <div class="kv-rep-pair">
+          <div><div class="kv-kpi-label">First sample</div><div class="kv-kpi-value kv-rep-a" data-source="replication" data-field="original" data-where="metric=within_diff">—</div></div>
+          <div><div class="kv-kpi-label">Second sample</div><div class="kv-kpi-value kv-rep-b" data-source="replication" data-field="replication" data-where="metric=within_diff">—</div></div>
+        </div>
+        <p class="kv-note">Both sit roughly ten standard errors below zero.</p>
+      </div>
+      <div class="kv-card kv-warm kv-wide">
+        <h3>Key results, both samples</h3>
+        <div class="kv-who">
+          <span class="kv-pill"><span class="kv-swatch" style="background: var(--kv-third)"></span>First sample</span>
+          <span class="kv-pill"><span class="kv-swatch" style="background: var(--kv-fourth)"></span>Second sample</span>
+        </div>
+        <div class="kv-chart dash-skeleton" id="chart-replication" data-source="replication"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kv-section" id="meaning" style="--kv-c: var(--kv-expert)">
+    <div class="kv-step-head"><span class="kv-num-badge">5</span><span class="kv-step-kicker">What it means</span></div>
+    <h2>Looking relevant and getting clicked aren't the same thing</h2>
+    <div class="kv-grid">
+      <div class="kv-card kv-user">
+        <h3>What I found, and why it caught my attention</h3>
+        <ul class="kv-list">
+          <li><b>Relevance and appeal split at exactly one point.</b> Up to a partial match, more overlap means more clicks and higher expert scores. At a full, word-for-word match the two signals point in opposite directions.</li>
+          <li><b>Relevance itself isn't the problem.</b> A smarter match score rose with both clicks and expert scores. What people seem to pass over is a title that only echoes what they typed, rather than one that adds something.</li>
+          <li><b>Why I find it interesting.</b> I came to this through an interest in adtech, where headlines are routinely written to mirror the search and relevance is often judged by keyword match or human ratings. My results suggest the title that looks most relevant isn't always the one people choose, and that gap is what I'd want to understand next.</li>
+        </ul>
+      </div>
+      <div class="kv-card kv-neutral">
+        <h3>Limitations</h3>
+        <ul class="kv-list">
+          <li><b>Fewer clicks may not mean worse.</b> A title that copies the question might answer it on the results page, so people don't need to click.</li>
+          <li><b>These are regular search results, not ads.</b> Same tension, but not ad numbers.</li>
+          <li><b>Clicks and expert scores come from different searches,</b> so the disagreement is between patterns.</li>
+          <li><b>No randomized experiment.</b> Same-search comparisons, position adjustment and replication reduce bias but don't remove it.</li>
+        </ul>
+      </div>
+      <div class="kv-card kv-expert">
+        <h3>What I'd test next</h3>
+        <ul class="kv-list">
+          <li><b>An A/B test of ad titles:</b> full keyword match versus a partial match that adds information, measured on clicks and conversions.</li>
+          <li><b>The answer-on-the-page question:</b> do near-copy titles hold attention longer without a click?</li>
+          <li><b>Sponsored results:</b> repeat the analysis on ads specifically.</li>
+        </ul>
+        <p class="kv-note">Data: two independent click files from Baidu's public search dataset (Baidu-ULTR) plus its expert-rated set, analyzed in DuckDB.</p>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+
+<footer class="kv-foot">Data: Baidu-ULTR (Baidu Unbiased Learning to Rank dataset), preprocessed release on Hugging Face. Analysis in DuckDB; code and SQL in this repository.</footer>
+<script>
+
+// Minimal stand-in for the hosted dashboard runtime: data is embedded below.
+const DATA = {"overview":[{"results":524164,"searches":64200,"ctr":0.0843,"rated_results":397522}],"position":[{"position":1,"n":54264,"ctr":0.34,"avg_overlap":0.734},{"position":2,"n":52566,"ctr":0.1724,"avg_overlap":0.731},{"position":3,"n":55731,"ctr":0.0881,"avg_overlap":0.76},{"position":4,"n":55575,"ctr":0.0679,"avg_overlap":0.739},{"position":5,"n":56064,"ctr":0.0428,"avg_overlap":0.739},{"position":6,"n":56627,"ctr":0.0334,"avg_overlap":0.737},{"position":7,"n":59546,"ctr":0.0266,"avg_overlap":0.725},{"position":8,"n":56340,"ctr":0.0193,"avg_overlap":0.725},{"position":9,"n":60240,"ctr":0.0155,"avg_overlap":0.74},{"position":10,"n":7431,"ctr":0.0097,"avg_overlap":null},{"position":11,"n":2647,"ctr":0.0057,"avg_overlap":null},{"position":12,"n":2472,"ctr":0.004,"avg_overlap":null},{"position":13,"n":1739,"ctr":0.0023,"avg_overlap":null},{"position":14,"n":1252,"ctr":0.0032,"avg_overlap":null},{"position":15,"n":773,"ctr":0.0026,"avg_overlap":null}],"overlap":[{"bucket":"0_none","label":"None","n_clicks":14338,"ctr":0.0734,"actual_clicks":1052,"expected_clicks":1264,"lift":0.832,"n_rated":16335,"avg_label":0.352,"avg_label_long_q":0.27},{"bucket":"1_low","label":"Low (<50%)","n_clicks":71868,"ctr":0.0883,"actual_clicks":6344,"expected_clicks":6331,"lift":1.002,"n_rated":95229,"avg_label":0.358,"avg_label_long_q":0.354},{"bucket":"2_high","label":"Partial (50\u201399%)","n_clicks":239083,"ctr":0.0932,"actual_clicks":22287,"expected_clicks":20545,"lift":1.085,"n_rated":193560,"avg_label":0.87,"avg_label_long_q":0.872},{"bucket":"3_full","label":"Full (100%)","n_clicks":181664,"ctr":0.0793,"actual_clicks":14410,"expected_clicks":15953,"lift":0.903,"n_rated":92398,"avg_label":1.527,"avg_label_long_q":1.525}],"within_search":[{"test":"clicks","unit":"click probability (position-adjusted)","n":38733,"diff":-0.0126,"std_error":0.0012},{"test":"experts","unit":"expert rating (0\u20134)","n":4157,"diff":0.453,"std_error":0.011}],"nearcopy":[{"shape":"1_near_copy","label":"Near-copy of query","n_clicks":31425,"lift":0.919,"n_rated":2525,"avg_label":1.923},{"shape":"2_moderate","label":"Moderately longer","n_clicks":55301,"lift":0.944,"n_rated":18954,"avg_label":1.73},{"shape":"3_much_longer","label":"Much longer","n_clicks":41111,"lift":1.027,"n_rated":32912,"avg_label":1.376}],"bm25":[{"band":1,"n_clicks":101391,"lift":0.849,"n_rated":79505,"avg_label":0.458},{"band":2,"n_clicks":101391,"lift":0.938,"n_rated":79505,"avg_label":0.751},{"band":3,"n_clicks":101391,"lift":1.026,"n_rated":79504,"avg_label":0.901},{"band":4,"n_clicks":101390,"lift":1.076,"n_rated":79504,"avg_label":1.06},{"band":5,"n_clicks":101390,"lift":1.088,"n_rated":79504,"avg_label":1.224}],"qlen":[{"q_len":"1-2 tokens","bucket":"0_none","label":"None","n":833,"lift":0.714},{"q_len":"1-2 tokens","bucket":"2_high","label":"Partial","n":359,"lift":0.658},{"q_len":"1-2 tokens","bucket":"3_full","label":"Full","n":11252,"lift":0.647},{"q_len":"3-4 tokens","bucket":"0_none","label":"None","n":3256,"lift":0.776},{"q_len":"3-4 tokens","bucket":"1_low","label":"Low","n":1224,"lift":0.575},{"q_len":"3-4 tokens","bucket":"2_high","label":"Partial","n":7680,"lift":0.693},{"q_len":"3-4 tokens","bucket":"3_full","label":"Full","n":42575,"lift":0.786},{"q_len":"5+ tokens","bucket":"0_none","label":"None","n":10249,"lift":0.862},{"q_len":"5+ tokens","bucket":"1_low","label":"Low","n":70644,"lift":1.01},{"q_len":"5+ tokens","bucket":"2_high","label":"Partial","n":231044,"lift":1.098},{"q_len":"5+ tokens","bucket":"3_full","label":"Full","n":127837,"lift":0.957}],"replication":[{"metric":"within_diff","label":"Same-search click gap","original":-0.0126,"replication":-0.0116},{"metric":"within_se","label":"Standard error of the gap","original":0.0012,"replication":0.0012},{"metric":"lift_partial","label":"Partial match","original":1.085,"replication":1.093},{"metric":"lift_full","label":"Full match","original":0.903,"replication":0.895},{"metric":"long_partial","label":"Partial match on longer searches","original":1.098,"replication":1.111},{"metric":"long_full","label":"Full match on longer searches","original":0.957,"replication":0.946},{"metric":"copy_near","label":"Near-copy title","original":0.919,"replication":0.895},{"metric":"copy_longer","label":"Much longer title","original":1.027,"replication":1.01},{"metric":"bm25_low","label":"Weakest match score","original":0.849,"replication":0.849},{"metric":"bm25_high","label":"Strongest match score","original":1.088,"replication":1.097}]};
+const _calcs = {};
+const _fns = [];
+window.dash = {
+  data(id) {
+    if (_calcs[id]) {
+      const c = _calcs[id];
+      return {status: 'ok', data: c.fn(...c.inputs.map(i => DATA[i]))};
+    }
+    return DATA[id] ? {status: 'ok', data: DATA[id]} : {status: 'missing', data: []};
+  },
+  calc(id, spec) { _calcs[id] = spec; },
+  onData(fn) { _fns.push(fn); fn(); },
+  setLink() {},
+  colors: []
+};
+let _t;
+window.addEventListener('resize', () => { clearTimeout(_t); _t = setTimeout(() => _fns.forEach(f => f()), 150); });
+
+
+const root = document.querySelector('.kv');
+const BRIGHT = { user: '#FF006E', expert: '#3A86FF', third: '#FB5607', fourth: '#8338EC' };
+root.style.setProperty('--kv-user', BRIGHT.user);
+root.style.setProperty('--kv-expert', BRIGHT.expert);
+root.style.setProperty('--kv-third', BRIGHT.third);
+root.style.setProperty('--kv-fourth', BRIGHT.fourth);
+
+
+const navButtons = Array.from(document.querySelectorAll('.kv-nav button'));
+navButtons.forEach(b => b.addEventListener('click', () => {
+  const el = document.getElementById(b.getAttribute('data-go'));
+  if (el) { el.scrollIntoView({behavior: 'smooth', block: 'start'}); dash.setLink(el.id); }
+}));
+const chapterIds = navButtons.map(b => b.getAttribute('data-go'));
+const setActive = id => navButtons.forEach(b => b.classList.toggle('kv-on', b.getAttribute('data-go') === id));
+setActive(chapterIds[0]);
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { setActive(e.target.id); dash.setLink(e.target.id); } });
+}, {root: null, rootMargin: '-35% 0px -60% 0px'});
+chapterIds.forEach(id => { const el = document.getElementById(id); if (el) io.observe(el); });
+const named = document.getElementById(location.hash.slice(1));
+if (named) named.scrollIntoView();
+
+const C = { user: BRIGHT.user, expert: BRIGHT.expert, third: BRIGHT.third };
+
+const F = {
+  int: d3.format(','),
+  pct0: d3.format('.0%'),
+  pct1: d3.format('.1%'),
+  f2: d3.format('.2f'),
+  pts: v => d3.format('+.1f')(v * 100) + ' pts',
+  sgn2: d3.format('+.2f'),
+  compact: v => new Intl.NumberFormat('en', {notation: 'compact', maximumFractionDigits: 1}).format(v)
+};
+
+dash.calc('headline', {
+  inputs: ['within_search', 'overview'],
+  title: 'Headline effect sizes',
+  description: 'Click gap as a share of average CTR, and each gap divided by its standard error.',
+  fn: (within_search, overview) => {
+    const clicks = within_search.find(r => r.test === 'clicks');
+    const experts = within_search.find(r => r.test === 'experts');
+    return [{
+      rel_drop: -Number(clicks.diff) / Number(overview[0].ctr),
+      click_z: Math.abs(Number(clicks.diff) / Number(clicks.std_error)),
+      label_z: Number(experts.diff) / Number(experts.std_error)
+    }];
+  }
+});
+
+const toNum = (rows, keys) => rows.map(r => {
+  const o = Object.assign({}, r);
+  keys.forEach(k => { o[k] = (r[k] === '' || r[k] == null) ? null : Number(r[k]); });
+  return o;
+});
+
+function fill(id, fmts) {
+  const res = dash.data(id);
+  document.querySelectorAll('.kv [data-source="' + id + '"][data-field]').forEach(el => {
+    if (el.tagName === 'TH') return;
+    if (res.status === 'ok') {
+      const rows = res.data || [];
+      let row = rows[0];
+      const w = el.getAttribute('data-where');
+      if (w) { const i = w.indexOf('='); const k = w.slice(0, i), v = w.slice(i + 1); row = rows.find(r => String(r[k]) === v); }
+      const f = el.getAttribute('data-field');
+      const v = row ? row[f] : null;
+      el.textContent = (v == null || v === '') ? '—' : (fmts[f] ? fmts[f](Number(v)) : String(v));
+      el.classList.remove('dash-skeleton');
+    } else if (res.status === 'loading') {
+      el.textContent = '—'; el.classList.add('dash-skeleton');
+    } else {
+      el.textContent = '—'; el.classList.remove('dash-skeleton');
+    }
+  });
+}
+
+function failed(el) {
+  d3.select(el).selectAll('*').remove();
+  el.classList.remove('dash-skeleton');
+  const box = document.createElement('div'); box.className = 'kv-failed';
+  const dot = document.createElement('span'); dot.className = 'kv-dot';
+  box.append(dot, document.createTextNode('Failed to load'));
+  el.append(box);
+}
+
+function chart(id, elId, draw) {
+  const el = document.getElementById(elId);
+  const res = dash.data(id);
+  if (res.status === 'ok') draw(el, res.data || []);
+  else if (res.status === 'loading') { d3.select(el).selectAll('*').remove(); el.classList.add('dash-skeleton'); }
+  else failed(el);
+}
+
+function measure(svg, strings) {
+  const t = svg.append('text').attr('class', 'kv-tick');
+  let max = 0;
+  strings.forEach(s => { t.text(s); max = Math.max(max, t.node().getComputedTextLength()); });
+  t.remove();
+  return max;
+}
+
+function wrap(sel, width) {
+  sel.each(function () {
+    const t = d3.select(this);
+    const words = t.text().split(/\s+/).filter(Boolean);
+    t.text(null);
+    let line = [];
+    let span = t.append('tspan').attr('x', 0).attr('dy', '0.9em');
+    words.forEach(w => {
+      line.push(w);
+      span.text(line.join(' '));
+      if (span.node().getComputedTextLength() > width && line.length > 1) {
+        line.pop(); span.text(line.join(' '));
+        line = [w];
+        span = t.append('tspan').attr('x', 0).attr('dy', '1.15em').text(w);
+      }
+    });
+  });
+}
+
+function showTip(el, tip, ev, head, lines, color) {
+  tip.selectAll('*').remove();
+  tip.append('div').attr('class', 'kv-tip-head').text(head);
+  lines.forEach((l, i) => {
+    const row = tip.append('div');
+    if (i === 0 && color) row.append('span').attr('class', 'kv-swatch').style('display', 'inline-block').style('margin-right', '6px').style('background', color);
+    row.append('span').text(l);
+  });
+  const p = d3.pointer(ev, el);
+  const tw = tip.node().offsetWidth, th = tip.node().offsetHeight, ew = el.clientWidth;
+  tip.style('left', Math.max(0, Math.min(p[0] + 12, ew - tw)) + 'px')
+     .style('top', Math.max(0, p[1] - th - 8) + 'px').style('opacity', 1);
+}
+
+function bars(el, rows, o) {
+  const sel = d3.select(el);
+  sel.selectAll('*').remove();
+  el.classList.remove('dash-skeleton');
+  const W = Math.max(240, el.clientWidth || 320), H = 230;
+  const top = 22, bottom = 48, right = 8;
+  const svg = sel.append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('class', 'kv-svg');
+  const ymax = o.yMax != null ? o.yMax : (d3.max(rows, o.y) || 1) * 1.18;
+  const y = d3.scaleLinear([0, ymax], [H - bottom, top]).nice();
+  const ticks = y.ticks(4);
+  const left = Math.ceil(measure(svg, ticks.map(o.fmt))) + 10;
+  const x = d3.scaleBand(rows.map(o.x), [left, W - right]).padding(0.28);
+
+  const ga = svg.append('g').attr('transform', 'translate(' + left + ',0)')
+    .call(d3.axisLeft(y).tickValues(ticks).tickFormat(o.fmt).tickSize(-(W - left - right)))
+    .attr('font-size', null).attr('font-family', null);
+  ga.select('.domain').remove();
+  ga.selectAll('line').style('stroke', 'var(--cds-chart-grid)');
+  ga.selectAll('text').attr('class', 'kv-tick');
+
+  const xa = svg.append('g').attr('transform', 'translate(0,' + (H - bottom) + ')')
+    .call(d3.axisBottom(x).tickSize(0))
+    .attr('font-size', null).attr('font-family', null);
+  xa.select('.domain').style('stroke', 'var(--cds-chart-axis)');
+  xa.selectAll('text').attr('class', 'kv-tick').attr('y', 8).attr('dy', null).call(wrap, x.step() - 4);
+
+  if (o.ref != null) {
+    svg.append('line').attr('x1', left).attr('x2', W - right)
+      .attr('y1', y(o.ref)).attr('y2', y(o.ref))
+      .style('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+  }
+
+  const bw = Math.min(x.bandwidth(), 44);
+  const op = d => (o.accent && !o.accent(d)) ? 0.42 : 1;
+  const tip = sel.append('div').attr('class', 'kv-tip');
+  const tipLines = d => o.tip ? o.tip(d) : [o.fmt(o.y(d))];
+  const head = d => o.head ? o.head(d) : o.x(d);
+
+  svg.append('g').selectAll('rect').data(rows).join('rect')
+    .attr('x', d => x(o.x(d)) + (x.bandwidth() - bw) / 2).attr('width', bw)
+    .attr('y', d => y(o.y(d))).attr('height', d => Math.max(0, y(0) - y(o.y(d))))
+    .attr('rx', 5).style('fill', o.color).attr('fill-opacity', op)
+    .on('mouseenter', function (ev, d) { d3.select(this).attr('fill-opacity', 1).style('stroke', o.color).attr('stroke-width', 2); showTip(el, tip, ev, head(d), tipLines(d), o.color); })
+    .on('mousemove', (ev, d) => showTip(el, tip, ev, head(d), tipLines(d), o.color))
+    .on('mouseleave', function (ev, d) { d3.select(this).attr('fill-opacity', op(d)).style('stroke', null); tip.style('opacity', 0); });
+
+  if (o.values !== false) {
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'kv-val')
+      .attr('x', d => x(o.x(d)) + x.bandwidth() / 2).attr('y', d => y(o.y(d)) - 6)
+      .attr('text-anchor', 'middle').text(d => o.fmt(o.y(d)));
+  }
+}
+
+function interval(el, row, o) {
+  const sel = d3.select(el);
+  sel.selectAll('*').remove();
+  el.classList.remove('dash-skeleton');
+  if (!row) return;
+  const W = Math.max(240, el.clientWidth || 320), H = 110, L = 16, R = 16, axisY = H - 28, lineY = 60;
+  const d = Number(row.diff), se = Number(row.std_error);
+  const lo = d - 1.96 * se, hi = d + 1.96 * se;
+  const ext = d3.extent([0, lo, hi]);
+  const pad = (ext[1] - ext[0]) * 0.2 || 1;
+  const x = d3.scaleLinear([ext[0] - pad, ext[1] + pad], [L, W - R]).nice();
+  const svg = sel.append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('class', 'kv-svg');
+
+  const xa = svg.append('g').attr('transform', 'translate(0,' + axisY + ')')
+    .call(d3.axisBottom(x).ticks(4).tickFormat(o.fmt).tickSize(0))
+    .attr('font-size', null).attr('font-family', null);
+  xa.select('.domain').style('stroke', 'var(--cds-chart-axis)');
+  xa.selectAll('text').attr('class', 'kv-tick').attr('y', 8);
+
+  svg.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', 14).attr('y2', axisY)
+    .style('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+
+  const tip = sel.append('div').attr('class', 'kv-tip');
+  const lines = [
+    'Difference ' + o.fmt(d),
+    'Plausible range ' + o.fmt(lo) + ' to ' + o.fmt(hi),
+    F.int(Number(row.n)) + ' ' + o.unitN
+  ];
+  const g = svg.append('g')
+    .on('mouseenter', ev => showTip(el, tip, ev, o.head, lines, o.color))
+    .on('mousemove', ev => showTip(el, tip, ev, o.head, lines, o.color))
+    .on('mouseleave', () => tip.style('opacity', 0));
+  g.append('rect').attr('x', x(lo)).attr('width', Math.max(4, x(hi) - x(lo))).attr('y', lineY - 7).attr('height', 14)
+    .attr('rx', 7).style('fill', o.color).attr('fill-opacity', 0.3);
+  g.append('circle').attr('cx', x(d)).attr('cy', lineY).attr('r', 7).style('fill', o.color)
+    .style('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+  const label = svg.append('text').attr('class', 'kv-val').attr('y', lineY - 16).text(o.fmt(d));
+  const lw = label.node().getComputedTextLength();
+  label.attr('x', Math.max(L, Math.min(x(d) - lw / 2, W - R - lw)));
+}
+
+function drawTable(el, rows) {
+  const tbody = el.querySelector('tbody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  const max = Math.max(1.15, d3.max(rows, r => r.lift) || 1);
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-key', encodeURIComponent(r.q_len) + ',' + encodeURIComponent(r.bucket));
+    const c1 = document.createElement('td'); c1.textContent = r.q_len;
+    const c2 = document.createElement('td'); c2.textContent = r.label;
+    const c3 = document.createElement('td'); c3.className = 'kv-num'; c3.textContent = F.int(r.n);
+    const c4 = document.createElement('td');
+    const wrapEl = document.createElement('div'); wrapEl.className = 'kv-lift';
+    const val = document.createElement('span'); val.className = 'kv-lift-val'; val.textContent = F.f2(r.lift);
+    const track = document.createElement('div'); track.className = 'kv-track';
+    const bar = document.createElement('div'); bar.className = 'kv-bar';
+    bar.style.width = (100 * r.lift / max) + '%';
+    bar.style.background = C.user;
+    bar.style.opacity = r.bucket === '3_full' ? '1' : '0.42';
+    const ref = document.createElement('div'); ref.className = 'kv-ref'; ref.style.left = (100 / max) + '%';
+    track.append(bar, ref);
+    wrapEl.append(val, track);
+    c4.append(wrapEl);
+    tr.append(c1, c2, c3, c4);
+    tbody.append(tr);
+  });
+}
+
+function groupedBars(el, rows, o) {
+  const sel = d3.select(el);
+  sel.selectAll('*').remove();
+  el.classList.remove('dash-skeleton');
+  const W = Math.max(260, el.clientWidth || 360), H = 250;
+  const top = 18, bottom = 58, right = 8;
+  const svg = sel.append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('class', 'kv-svg');
+  const keys = o.keys;
+  const ymax = (d3.max(rows, r => d3.max(keys, k => r[k])) || 1) * 1.12;
+  const y = d3.scaleLinear([0, ymax], [H - bottom, top]).nice();
+  const ticks = y.ticks(4);
+  const left = Math.ceil(measure(svg, ticks.map(o.fmt))) + 10;
+  const x0 = d3.scaleBand(rows.map(r => r.label), [left, W - right]).padding(0.22);
+  const x1 = d3.scaleBand(keys, [0, x0.bandwidth()]).padding(0.12);
+
+  const ga = svg.append('g').attr('transform', 'translate(' + left + ',0)')
+    .call(d3.axisLeft(y).tickValues(ticks).tickFormat(o.fmt).tickSize(-(W - left - right)))
+    .attr('font-size', null).attr('font-family', null);
+  ga.select('.domain').remove();
+  ga.selectAll('line').style('stroke', 'var(--cds-chart-grid)');
+  ga.selectAll('text').attr('class', 'kv-tick');
+
+  const xa = svg.append('g').attr('transform', 'translate(0,' + (H - bottom) + ')')
+    .call(d3.axisBottom(x0).tickSize(0))
+    .attr('font-size', null).attr('font-family', null);
+  xa.select('.domain').style('stroke', 'var(--cds-chart-axis)');
+  xa.selectAll('text').attr('class', 'kv-tick').attr('y', 8).attr('dy', null).call(wrap, x0.step() - 4);
+
+  if (o.ref != null) {
+    svg.append('line').attr('x1', left).attr('x2', W - right).attr('y1', y(o.ref)).attr('y2', y(o.ref))
+      .style('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+  }
+
+  const tip = sel.append('div').attr('class', 'kv-tip');
+  const g = svg.append('g').selectAll('g').data(rows).join('g')
+    .attr('transform', r => 'translate(' + x0(r.label) + ',0)');
+  g.selectAll('rect').data(r => keys.map(k => ({k, v: r[k], label: r.label}))).join('rect')
+    .attr('x', d => x1(d.k)).attr('width', x1.bandwidth())
+    .attr('y', d => y(d.v)).attr('height', d => Math.max(0, y(0) - y(d.v)))
+    .attr('rx', 4).style('fill', d => o.colors[d.k])
+    .on('mouseenter', function (ev, d) { d3.select(this).style('stroke', o.colors[d.k]).attr('stroke-width', 2); showTip(el, tip, ev, d.label, [o.names[d.k] + ': ' + F.f2(d.v) + '× the clicks its spot predicts'], o.colors[d.k]); })
+    .on('mousemove', (ev, d) => showTip(el, tip, ev, d.label, [o.names[d.k] + ': ' + F.f2(d.v) + '× the clicks its spot predicts'], o.colors[d.k]))
+    .on('mouseleave', function () { d3.select(this).style('stroke', null); tip.style('opacity', 0); });
+}
+
+dash.onData(() => {
+  fill('overview', {searches: F.compact, results: F.compact, rated_results: F.compact});
+  fill('within_search', {diff: F.f2});
+  fill('headline', {rel_drop: F.pct0});
+
+  chart('position', 'chart-position', (el, raw) => {
+    const rows = toNum(raw, ['position', 'n', 'ctr', 'avg_overlap']).filter(d => d.position <= 10);
+    bars(el, rows, {
+      x: d => String(d.position), y: d => d.ctr, fmt: F.pct0, color: C.third,
+      head: d => 'Spot ' + d.position + ' on the page',
+      tip: d => [F.pct1(d.ctr) + ' of people clicked', F.int(d.n) + ' results shown here']
+    });
+  });
+
+  chart('overlap', 'chart-overlap-lift', (el, raw) => {
+    const rows = toNum(raw, ['n_clicks', 'ctr', 'actual_clicks', 'expected_clicks', 'lift']);
+    bars(el, rows, {
+      x: d => d.label, y: d => d.lift, fmt: F.f2, ref: 1, color: C.user,
+      accent: d => d.bucket === '3_full',
+      head: d => d.label + ' match',
+      tip: d => [F.f2(d.lift) + '× the clicks its spot predicts', F.int(d.actual_clicks) + ' clicks vs ' + F.int(d.expected_clicks) + ' expected']
+    });
+  });
+
+  chart('overlap', 'chart-overlap-label', (el, raw) => {
+    const rows = toNum(raw, ['n_rated', 'avg_label', 'avg_label_long_q']);
+    bars(el, rows, {
+      x: d => d.label, y: d => d.avg_label, fmt: F.f2, color: C.expert,
+      accent: d => d.bucket === '3_full',
+      head: d => d.label + ' match',
+      tip: d => ['Average expert score ' + F.f2(d.avg_label), F.int(d.n_rated) + ' rated results']
+    });
+  });
+
+  chart('nearcopy', 'chart-copy-lift', (el, raw) => {
+    const rows = toNum(raw, ['n_clicks', 'lift', 'n_rated', 'avg_label']);
+    bars(el, rows, {
+      x: d => d.label, y: d => d.lift, fmt: F.f2, ref: 1, color: C.user,
+      accent: d => d.shape === '1_near_copy',
+      tip: d => [F.f2(d.lift) + '× the clicks its spot predicts', F.int(d.n_clicks) + ' results']
+    });
+  });
+
+  chart('nearcopy', 'chart-copy-label', (el, raw) => {
+    const rows = toNum(raw, ['n_clicks', 'lift', 'n_rated', 'avg_label']);
+    bars(el, rows, {
+      x: d => d.label, y: d => d.avg_label, fmt: F.f2, color: C.expert,
+      accent: d => d.shape === '1_near_copy',
+      tip: d => ['Average expert score ' + F.f2(d.avg_label), F.int(d.n_rated) + ' rated results']
+    });
+  });
+
+  chart('within_search', 'chart-within-clicks', (el, raw) => {
+    interval(el, raw.find(r => r.test === 'clicks'), {fmt: F.pts, color: C.user, head: 'Full match minus partial: clicks', unitN: 'searches with both'});
+  });
+
+  chart('within_search', 'chart-within-experts', (el, raw) => {
+    interval(el, raw.find(r => r.test === 'experts'), {fmt: F.sgn2, color: C.expert, head: 'Full match minus partial: expert score', unitN: 'queries with both'});
+  });
+
+  const bandName = b => ['Weakest', 'Weak', 'Middle', 'Strong', 'Strongest'][b - 1] || String(b);
+
+  chart('bm25', 'chart-bm25-lift', (el, raw) => {
+    const rows = toNum(raw, ['band', 'n_clicks', 'lift', 'n_rated', 'avg_label']);
+    bars(el, rows, {
+      x: d => bandName(d.band), y: d => d.lift, fmt: F.f2, ref: 1, color: C.user,
+      tip: d => [F.f2(d.lift) + '× the clicks its spot predicts', F.int(d.n_clicks) + ' results']
+    });
+  });
+
+  chart('bm25', 'chart-bm25-label', (el, raw) => {
+    const rows = toNum(raw, ['band', 'n_clicks', 'lift', 'n_rated', 'avg_label']);
+    bars(el, rows, {
+      x: d => bandName(d.band), y: d => d.avg_label, fmt: F.f2, color: C.expert,
+      tip: d => ['Average expert score ' + F.f2(d.avg_label), F.int(d.n_rated) + ' rated results']
+    });
+  });
+
+  fill('replication', {original: F.pts, replication: F.pts});
+  chart('replication', 'chart-replication', (el, raw) => {
+    const rows = toNum(raw, ['original', 'replication']).filter(r => r.metric.indexOf('within') !== 0);
+    groupedBars(el, rows, {
+      keys: ['original', 'replication'], fmt: F.f2, ref: 1,
+      colors: {original: BRIGHT.third, replication: BRIGHT.fourth},
+      names: {original: 'First sample', replication: 'Second sample'}
+    });
+  });
+
+  const tableEl = document.getElementById('table-qlen');
+  const q = dash.data('qlen');
+  if (q.status === 'ok') drawTable(tableEl, toNum(q.data || [], ['n', 'lift']));
+});
+
+</script>
+</body>
+</html>

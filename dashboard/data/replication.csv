@@ -1,0 +1,11 @@
+metric,label,original,replication
+within_diff,Same-search click gap,-0.0126,-0.0116
+within_se,Standard error of the gap,0.0012,0.0012
+lift_partial,Partial match,1.085,1.093
+lift_full,Full match,0.903,0.895
+long_partial,Partial match on longer searches,1.098,1.111
+long_full,Full match on longer searches,0.957,0.946
+copy_near,Near-copy title,0.919,0.895
+copy_longer,Much longer title,1.027,1.01
+bm25_low,Weakest match score,0.849,0.849
+bm25_high,Strongest match score,1.088,1.097

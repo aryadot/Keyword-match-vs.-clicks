@@ -1,0 +1,12 @@
+q_len,bucket,label,n,lift
+1-2 tokens,0_none,None,833,0.714
+1-2 tokens,2_high,Partial,359,0.658
+1-2 tokens,3_full,Full,11252,0.647
+3-4 tokens,0_none,None,3256,0.776
+3-4 tokens,1_low,Low,1224,0.575
+3-4 tokens,2_high,Partial,7680,0.693
+3-4 tokens,3_full,Full,42575,0.786
+5+ tokens,0_none,None,10249,0.862
+5+ tokens,1_low,Low,70644,1.01
+5+ tokens,2_high,Partial,231044,1.098
+5+ tokens,3_full,Full,127837,0.957

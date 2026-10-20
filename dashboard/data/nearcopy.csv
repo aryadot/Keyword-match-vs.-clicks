@@ -1,0 +1,4 @@
+shape,label,n_clicks,lift,n_rated,avg_label
+1_near_copy,Near-copy of query,31425,0.919,2525,1.923
+2_moderate,Moderately longer,55301,0.944,18954,1.73
+3_much_longer,Much longer,41111,1.027,32912,1.376
