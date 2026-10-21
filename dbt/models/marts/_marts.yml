@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: fct_sample_summary
+    description: Size and overall click rate of the sample.
+
+  - name: fct_position_ctr
+    description: Click rate by position, all positions. Shows how strongly placement drives clicks.
+    columns:
+      - name: position
+        data_tests: [unique]
+
+  - name: fct_overlap_by_position
+    description: Average overlap by position. Flat values mean position doesn't confound the match level comparison.
+
+  - name: fct_match_level_lift
+    description: >
+      Actual clicks divided by position expected clicks, by match level.
+      Lift above 1 means more clicks than placement alone predicts.
+    columns:
+      - name: match_level
+        data_tests: [unique, not_null]
+
+  - name: fct_same_search_gap
+    description: >
+      Headline result. Average difference in position adjusted click residual
+      between full and partial matches shown in the same search, with its
+      standard error across searches.
+
+  - name: fct_query_length_lift
+    description: Lift by query length band and match level. Checks whether short queries drive the pooled result.
+
+  - name: fct_title_shape_lift
+    description: Full matches on 5+ token queries, by how long the title is relative to the query.
+
+  - name: fct_bm25_lift
+    description: Lift by BM25 quintile. Checks whether relevance itself, scored more carefully, tracks clicks.
+
+  - name: fct_label_match_level
+    description: Average expert rating by match level.
+    columns:
+      - name: match_level
+        data_tests: [unique]
+
+  - name: fct_label_same_query_gap
+    description: Difference in expert rating between full and partial matches for the same query.
+
+  - name: fct_label_title_shape
+    description: Expert rating of full matches by title length relative to the query.
+
+  - name: fct_label_bm25
+    description: Average expert rating by BM25 quintile.

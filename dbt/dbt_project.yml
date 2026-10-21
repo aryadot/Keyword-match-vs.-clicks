@@ -1,0 +1,27 @@
+name: search_relevance
+version: "1.0.0"
+config-version: 2
+profile: search_relevance
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # Paths are relative to this dbt/ folder.
+  clicks_path: "../data/clicks_part-0_split-0.parquet"
+  labels_path: "../data/labels.parquet"
+  include_labels: true
+  # Positions below this are too sparse for a stable baseline click rate.
+  max_position: 9
+
+models:
+  search_relevance:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table

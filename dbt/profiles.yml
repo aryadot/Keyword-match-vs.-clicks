@@ -1,0 +1,12 @@
+# One DuckDB file per sample so the analysis and the replication sit side by side.
+search_relevance:
+  target: sample_a
+  outputs:
+    sample_a:
+      type: duckdb
+      path: sample_a.duckdb
+      threads: 4
+    sample_b:
+      type: duckdb
+      path: sample_b.duckdb
+      threads: 4

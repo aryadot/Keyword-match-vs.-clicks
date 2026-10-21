@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: int_click_results
+    description: >
+      Results in positions 1 to max_position with token overlap and match
+      level. Positions further down are too sparse for a stable baseline.
+    columns:
+      - name: overlap
+        description: Share of the query's distinct tokens that appear in the title.
+        data_tests:
+          - not_null
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: match_level
+        description: none (0), low (under half), partial (half or more), full (every token).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['0_none', '1_low', '2_partial', '3_full']
+      - name: query_length_band
+        description: Query length in tokens, grouped as 1-2, 3-4, 5+.
+
+  - name: int_position_baseline
+    description: >
+      Average click rate at each position. This is the expected click rate a
+      result earns from placement alone.
+    columns:
+      - name: position
+        data_tests: [unique, not_null]
+      - name: expected_ctr
+        data_tests:
+          - not_null
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: int_click_results_adjusted
+    description: >
+      Each result with its position baseline. click_residual is the click
+      minus the expected click rate, the unit every comparison is built on.
+    columns:
+      - name: click_residual
+        description: Positive means more clicks than the position predicts.
+        data_tests: [not_null]
+
+  - name: int_label_results
+    description: Expert labelled results with the same overlap and match level definitions.
+    columns:
+      - name: match_level
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['0_none', '1_low', '2_partial', '3_full']

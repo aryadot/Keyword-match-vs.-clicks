@@ -1,1 +1,0 @@
-Output of `src/run_analysis.py`. Run the commands in the main README to regenerate `sample_a/` (analysis sample plus expert labels) and `sample_b/` (replication). The summary tables used by the interactive write-up are in `dashboard/data/`.

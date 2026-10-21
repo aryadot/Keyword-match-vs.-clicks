@@ -1,0 +1,5 @@
+match_level,results,avg_label,avg_label_5plus_tokens
+0_none,16335,0.352,0.27
+1_low,95229,0.358,0.354
+2_partial,193560,0.87,0.872
+3_full,92398,1.527,1.525

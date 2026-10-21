@@ -1,0 +1,12 @@
+query_length_band,match_level,results,lift
+1-2 tokens,0_none,955,0.722
+1-2 tokens,2_partial,343,0.294
+1-2 tokens,3_full,11953,0.629
+3-4 tokens,0_none,3405,0.878
+3-4 tokens,1_low,1267,0.547
+3-4 tokens,2_partial,8057,0.597
+3-4 tokens,3_full,41939,0.791
+5+ tokens,0_none,10187,0.945
+5+ tokens,1_low,70275,0.986
+5+ tokens,2_partial,232432,1.111
+5+ tokens,3_full,126638,0.946

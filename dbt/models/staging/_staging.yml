@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_clicks
+    description: >
+      Baidu-ULTR click log, one row per search result shown. Query and title
+      text are anonymized token IDs. Reads the parquet file set by the
+      clicks_path variable, so the same models run on any sample.
+    columns:
+      - name: query_id
+        description: Identifier for one search session.
+        data_tests: [not_null]
+      - name: position
+        description: Rank of the result on the page, 1 is the top.
+        data_tests: [not_null]
+      - name: click
+        description: 1 if the result was clicked, otherwise 0.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: query_tokens
+        description: Query as a list of token IDs.
+      - name: title_tokens
+        description: Result title as a list of token IDs.
+      - name: bm25_title
+        description: Precomputed BM25 score between query and title.
+
+  - name: stg_labels
+    description: >
+      Expert annotated validation set. Each query and result pair has a
+      relevance label from 0 (bad) to 4 (excellent). No clicks, and the
+      queries differ from the click log.
+    columns:
+      - name: query_key
+        description: MD5 of the query text, used as the query identifier.
+        data_tests: [not_null]
+      - name: label
+        description: Expert relevance rating, 0 to 4.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3, 4]
+                quote: false
